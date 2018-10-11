@@ -1,0 +1,17 @@
+{
+  "name": "staryun",
+  "version": "1.0.0",
+  "description": "自动领取流量",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "superagent": "^4.0.0-beta.5",
+    "request": "^2.88.0",
+    "events": "^3.0.0",
+    "node-schedule": "^1.3.0"
+  }
+}
