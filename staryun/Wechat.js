@@ -71,7 +71,7 @@ let templateParams = {
     'touser': '',
     'template_id': '',
     'data': {
-        'nowData': {
+        'title':{
             'value': '',
             'color': '#173177'
         },
@@ -99,7 +99,6 @@ const sendTemplate = function () {
     const flowParams = staryun.flowParams;
 
     const date = new Date();
-    templateParams.data.nowData = date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate();
     templateParams.data.nowGetFlow.value = flowParams.nowGetFlow;
     templateParams.data.usedFlow.value = flowParams.usedFlow;
     templateParams.data.remainingFlow.value = flowParams.remainingFlow;
@@ -115,8 +114,9 @@ const sendTemplate = function () {
         });
 };
 
-exports.sendWechatMessage = function () {
+exports.sendWechatMessage = function (name) {
     console.log(' start send template message ... ');
+    templateParams.data.title.value = name;
     getAccessToken();
     console.log(' end send template message ... ');
 };

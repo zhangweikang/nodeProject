@@ -5,14 +5,28 @@
  * 自动退出登录
  * Created by Administrator on 2018/10/11.
  */
-const Wechat = require('./Wechat');//引入微信发送消息模块
+const Wechat = require('./Wechat'); //引入微信发送消息模块
 
-const superagent = require('superagent');//远程调用
-const events = require('events');//事件
+const superagent = require('superagent'); //远程调用
+const events = require('events'); //事件
 const request = require('request');
 const cheerio = require('cheerio');
 
+const urls = [{
+        domain: 'https://staryun.me',
+        name: '星之所在'
+    },
+    {
+        domain: 'https://wxkxsw.com',
+        name: '我想开心上网'
+    }
+]
+
+let paramsIndex = 0;
+let requestParams = urls[paramsIndex];
+
 let cookies = '';
+
 const loginParams = {
     email: 'zhangweikang0929@gmail.com',
     passwd: 'z12345678',
@@ -32,7 +46,7 @@ const eventEmitter = new events.EventEmitter();
 // 创建登录方法
 const login = function () {
     console.log(' staryun start login');
-    superagent.post('https://staryun.me/auth/login').send(loginParams).end((error, response) => {
+    superagent.post(requestParams.domain + '/auth/login').send(loginParams).end((error, response) => {
         if (response.ok) {
             console.log(' staryun login success');
             console.log(' login response body :' + decodeUnicode(response.text));
@@ -47,7 +61,7 @@ const login = function () {
 //创建签到方法
 const signIn = function () {
     console.log(' staryun start signIn');
-    superagent.post('https://staryun.me/user/checkin')
+    superagent.post(requestParams.domain + '/user/checkin')
         .set('Cookie', cookies)
         .end((error, response) => {
             if (response.ok) {
@@ -56,9 +70,8 @@ const signIn = function () {
                 console.log(' signIn response body :' + responseData);
                 responseData = JSON.parse(responseData);
                 flowParams.nowGetFlow = responseData.msg;
-                getUserHtmlData();//解析页面用户流量数据
                 //成功后触发签到功能
-                eventEmitter.emit('logout');
+                eventEmitter.emit('sendMessage');
             } else {
                 console.log(' staryun signIn error');
             }
@@ -67,18 +80,61 @@ const signIn = function () {
 //创建退出登录方法
 const logout = function () {
     console.log(' staryun start logout');
-    request('https://staryun.me/user/logout', function (error, response, body) {
+    request(requestParams.domain + '/user/logout', function (error, response, body) {
         if (!error && response.statusCode == 200) {
-            console.log(' staryun logout success');
-            Wechat.sendWechatMessage();
+            console.log(' staryun logout success ');
         }
     });
+};
+/**
+ * 解析html获取用户流量数据
+ */
+const getUserHtmlData = function () {
+    superagent.get(requestParams.domain + '/user')
+        .set('Cookie', cookies)
+        .set('Accept', '*/*')
+        .end((error, response) => {
+            if (response.ok) {
+                const $ = cheerio.load(response.text);
+                const scripts = $('script');
+                scripts.each(function (index, object) {
+                    let html = $(this).html().replace(/\s+/g, "");
+                    if (html.indexOf('newCanvasJS.Chart("traffic_chart"') > 0) {
+                        const objectBeginIndex = html.indexOf('{');
+                        const objectEndIndex = html.lastIndexOf('}');
+                        html = html.substring(objectBeginIndex, objectEndIndex + 1);
+                        let htmlObject = eval('(' + html + ')');
+                        flowParams.usedFlow = htmlObject.data[0].dataPoints[1].legendText;
+                        flowParams.remainingFlow = htmlObject.data[0].dataPoints[2].legendText;
+
+                        Wechat.sendWechatMessage(requestParams.name);
+
+                        cookies = '';
+                        eventEmitter.emit('logout');
+
+                        if (urls.length - 1 > paramsIndex) {
+                            paramsIndex++;
+                            requestParams = urls[paramsIndex];
+                            eventEmitter.emit('login');
+                        } else {
+                            paramsIndex = 0;
+                            requestParams = urls[paramsIndex];
+                        }
+                        return;
+                    }
+                });
+            } else {
+                console.log(' staryun signIn error ');
+            }
+        });
 };
 
 // 绑定 登录 事件处理程序
 eventEmitter.on('login', login);
 // 绑定 签到 事件处理程序
 eventEmitter.on('signIn', signIn);
+// 绑定 发送消息 事件处理程序
+eventEmitter.on('sendMessage', getUserHtmlData);
 // 绑定 退出登录 事件处理程序
 eventEmitter.on('logout', logout);
 
@@ -100,35 +156,6 @@ const getCookie = function (cookieData) {
             cookies += splits[0] + ';';
         })(i);
     }
-};
-
-/**
- * 解析html获取用户流量数据
- */
-const getUserHtmlData = function () {
-    superagent.get('https://staryun.me/user')
-        .set('Cookie', cookies)
-        .set('Accept', '*/*')
-        .end((error, response) => {
-            if (response.ok) {
-                const $ = cheerio.load(response.text);
-                const scripts = $('script');
-                scripts.each(function (index, object) {
-                    let html = $(this).html().replace(/\s+/g, "");
-                    if (html.indexOf('newCanvasJS.Chart("traffic_chart"') > 0) {
-                        const objectBeginIndex = html.indexOf('{');
-                        const objectEndIndex = html.lastIndexOf('}');
-                        html = html.substring(objectBeginIndex, objectEndIndex + 1);
-                        let htmlObject = eval('(' + html + ')');
-                        flowParams.usedFlow = htmlObject.data[0].dataPoints[1].legendText;
-                        flowParams.remainingFlow = htmlObject.data[0].dataPoints[2].legendText;
-                        return ;
-                    }
-                });
-            } else {
-                console.log(' staryun signIn error');
-            }
-        });
 };
 
 exports.flowParams = flowParams;
