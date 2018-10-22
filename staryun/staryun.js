@@ -47,16 +47,20 @@ const eventEmitter = new events.EventEmitter();
 const login = function () {
     console.log(' staryun start login');
     superagent.post(requestParams.domain + '/auth/login').send(loginParams).end((error, response) => {
+        if(error){
+            console.error(requestParams.domain + ' error ' + error);
+            return false;
+        }
         if (response.ok) {
-            console.log(' staryun login success');
+            console.log(' staryun login success ');
             console.log(' login response body :' + decodeUnicode(response.text));
             getCookie(response.headers['set-cookie']);
             //成功后触发签到功能
             eventEmitter.emit('signIn');
         } else {
-            console.log(' staryun login error');
+            console.log(' staryun login error ');
         }
-    })
+    });
 };
 //创建签到方法
 const signIn = function () {
@@ -64,6 +68,10 @@ const signIn = function () {
     superagent.post(requestParams.domain + '/user/checkin')
         .set('Cookie', cookies)
         .end((error, response) => {
+            if(error){
+                console.error(requestParams.domain + ' error ' + error);
+                return false;
+            }
             if (response.ok) {
                 console.log(' staryun signIn success');
                 let responseData = decodeUnicode(response.text);
@@ -83,6 +91,16 @@ const logout = function () {
     request(requestParams.domain + '/user/logout', function (error, response, body) {
         if (!error && response.statusCode == 200) {
             console.log(' staryun logout success ');
+            if (urls.length - 1 > paramsIndex) {
+                paramsIndex++;
+                requestParams = urls[paramsIndex];
+
+                console.log(' 触发 ' + requestParams.domain + '登陆')
+                eventEmitter.emit('login');
+            } else {
+                paramsIndex = 0;
+                requestParams = urls[paramsIndex];
+            }
         }
     });
 };
@@ -94,6 +112,10 @@ const getUserHtmlData = function () {
         .set('Cookie', cookies)
         .set('Accept', '*/*')
         .end((error, response) => {
+            if(error){
+                console.error(requestParams.domain + ' error ' + error);
+                return false;
+            }
             if (response.ok) {
                 const $ = cheerio.load(response.text);
                 const scripts = $('script');
@@ -112,19 +134,11 @@ const getUserHtmlData = function () {
                         cookies = '';
                         eventEmitter.emit('logout');
 
-                        if (urls.length - 1 > paramsIndex) {
-                            paramsIndex++;
-                            requestParams = urls[paramsIndex];
-                            eventEmitter.emit('login');
-                        } else {
-                            paramsIndex = 0;
-                            requestParams = urls[paramsIndex];
-                        }
-                        return;
+                        return false;
                     }
                 });
             } else {
-                console.log(' staryun signIn error ');
+                console.log(' staryun getHtml error ');
             }
         });
 };
