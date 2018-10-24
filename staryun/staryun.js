@@ -47,7 +47,7 @@ const eventEmitter = new events.EventEmitter();
 const login = function () {
     console.log(' staryun start login');
     superagent.post(requestParams.domain + '/auth/login').send(loginParams).end((error, response) => {
-        if(error){
+        if (error) {
             console.error(requestParams.domain + ' error ' + error);
             return false;
         }
@@ -59,6 +59,7 @@ const login = function () {
             eventEmitter.emit('signIn');
         } else {
             console.log(' staryun login error ');
+            errorOrOut();
         }
     });
 };
@@ -68,20 +69,28 @@ const signIn = function () {
     superagent.post(requestParams.domain + '/user/checkin')
         .set('Cookie', cookies)
         .end((error, response) => {
-            if(error){
+            if (error) {
                 console.error(requestParams.domain + ' error ' + error);
                 return false;
             }
             if (response.ok) {
-                console.log(' staryun signIn success');
-                let responseData = decodeUnicode(response.text);
-                console.log(' signIn response body :' + responseData);
-                responseData = JSON.parse(responseData);
-                flowParams.nowGetFlow = responseData.msg;
-                //成功后触发签到功能
-                eventEmitter.emit('sendMessage');
+                try{
+                    console.log(' staryun signIn success');
+                    let responseData = decodeUnicode(response.text);
+                    console.log(' signIn response body :' + responseData);
+                    responseData = JSON.parse(responseData);
+                    flowParams.nowGetFlow = responseData.msg;
+                    //成功后触发签到功能
+                    eventEmitter.emit('sendMessage');
+                } catch (error){
+                    console.error(requestParams.domain + ' error ' + response.text);
+                    console.error(' error ' + error);
+                    errorOrOut();
+                }
+                
             } else {
-                console.log(' staryun signIn error');
+                console.log(' staryun signIn error ');
+                errorOrOut();
             }
         });
 };
@@ -91,16 +100,7 @@ const logout = function () {
     request(requestParams.domain + '/user/logout', function (error, response, body) {
         if (!error && response.statusCode == 200) {
             console.log(' staryun logout success ');
-            if (urls.length - 1 > paramsIndex) {
-                paramsIndex++;
-                requestParams = urls[paramsIndex];
-
-                console.log(' 触发 ' + requestParams.domain + '登陆')
-                eventEmitter.emit('login');
-            } else {
-                paramsIndex = 0;
-                requestParams = urls[paramsIndex];
-            }
+            errorOrOut();
         }
     });
 };
@@ -112,7 +112,7 @@ const getUserHtmlData = function () {
         .set('Cookie', cookies)
         .set('Accept', '*/*')
         .end((error, response) => {
-            if(error){
+            if (error) {
                 console.error(requestParams.domain + ' error ' + error);
                 return false;
             }
@@ -138,6 +138,7 @@ const getUserHtmlData = function () {
                     }
                 });
             } else {
+                errorOrOut();
                 console.log(' staryun getHtml error ');
             }
         });
@@ -171,6 +172,19 @@ const getCookie = function (cookieData) {
         })(i);
     }
 };
+//失败或者退出登陆的时候出发下一个域名亲登陆签到或者还原坐标
+const errorOrOut = function () {
+    if (urls.length - 1 > paramsIndex) {
+        paramsIndex++;
+        requestParams = urls[paramsIndex];
+
+        console.log(' 触发 ' + requestParams.domain + '登陆')
+        eventEmitter.emit('login');
+    } else {
+        paramsIndex = 0;
+        requestParams = urls[paramsIndex];
+    }
+}
 
 exports.flowParams = flowParams;
 exports.main = function () {

@@ -8,7 +8,7 @@ const staryun = require('./staryun'); //引入staryun模块
 //定时任务
 const scheduleCronstyle = function () {
     //每天凌晨15分自动触发
-    schedule.scheduleJob('0 15 * * * *', function () {
+    schedule.scheduleJob('0 15 0 * * *', function () {
         staryun.main();
     });
 };
